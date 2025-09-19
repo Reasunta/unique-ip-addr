@@ -1,8 +1,6 @@
 package main
 
-import (
-	"sync/atomic"
-)
+import "sync/atomic"
 
 // IPCounter represents a huge number with a length of 2^32 bits. It is equal to max amount of unique ip addresses.
 type IPCounter struct {
@@ -18,12 +16,9 @@ func (i *IPCounter) handle(ip uint32) uint32 {
 	bit := ip % 64
 	mask := uint64(1 << bit)
 
-	item := atomic.LoadUint64(&i.counters[index])
-	if item&(mask) == 0 {
-		old := atomic.OrUint64(&i.counters[index], mask)
-		if old&mask == 0 {
-			return 1
-		}
+	old := atomic.OrUint64(&i.counters[index], mask)
+	if old&mask == 0 {
+		return 1
 	}
 
 	return 0
