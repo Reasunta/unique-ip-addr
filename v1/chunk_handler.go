@@ -1,6 +1,9 @@
 package main
 
-import "os"
+import (
+	"os"
+	"sync"
+)
 
 type ChunkHandler struct {
 	filename   string
@@ -13,7 +16,9 @@ func NewChunkHandler(filename string, bufferSize int, from int64, size int64) *C
 	return &ChunkHandler{filename: filename, bufferSize: bufferSize, from: from, size: size}
 }
 
-func (ch *ChunkHandler) Handle(counter *IPCounter, h chan uint64, u chan uint32, done chan bool, limit uint64) {
+func (ch *ChunkHandler) Handle(counter *IPCounter, h chan uint64, u chan uint32, limit uint64, wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	file, err := os.Open(ch.filename)
 	defer func(file *os.File) {
 		err := file.Close()
@@ -28,5 +33,5 @@ func (ch *ChunkHandler) Handle(counter *IPCounter, h chan uint64, u chan uint32,
 	_, _ = file.Seek(ch.from, 0)
 
 	fileHandler := NewFileHandler(file, ch.bufferSize, counter)
-	fileHandler.countAddresses(h, u, done, limit, ch.size)
+	fileHandler.countAddresses(h, u, limit, ch.size)
 }

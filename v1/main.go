@@ -4,18 +4,18 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"runtime"
+	"sync"
 	"time"
 )
 
 const (
-	BufferSize        = 1 << 20
-	ChannelBufferSize = 1 << 12
-	Limit             = 0
-
-	Workers          = 2
-	SendLimit uint64 = 1000000
+	BufferSize               = 1 << 20
+	ChannelBufferSize        = 1 << 8
+	Limit                    = 0
+	SendLimit         uint64 = 1000000
 )
 
 func calcChunks(filename string, parts int) ([]int64, error) {
@@ -60,6 +60,11 @@ func main() {
 	start := time.Now()
 	filename := os.Args[1]
 
+	var workers = runtime.NumCPU() - 2
+	if workers < 1 {
+		workers = 1
+	}
+
 	var m1, m2 runtime.MemStats
 	runtime.GC()
 	runtime.ReadMemStats(&m1)
@@ -69,35 +74,47 @@ func main() {
 
 	var h = make(chan uint64, ChannelBufferSize)
 	var u = make(chan uint32, ChannelBufferSize)
-	var done = make(chan bool, Workers)
 	counter := NewIPCounter()
 
-	chunks, err := calcChunks(filename, Workers)
+	chunks, err := calcChunks(filename, workers)
+
 	if err != nil {
 		panic(err)
 	}
 
-	var finishedGoroutines = 0
+	var finishedChannels = 0
 
-	for i := 0; i < Workers; i++ {
+	wg := &sync.WaitGroup{}
+	wg.Add(workers + 1)
+	go func() {
+		defer wg.Done()
+		for {
+			if finishedChannels == 2*workers {
+				break
+			}
+			select {
+			case hd := <-h:
+				if hd == math.MaxUint64 {
+					finishedChannels++
+				} else {
+					handled += hd
+					fmt.Printf("Handled address count: %d\r", handled)
+				}
+			case ud := <-u:
+				if ud == math.MaxUint32 {
+					finishedChannels++
+				} else {
+					unique += ud
+				}
+			}
+		}
+	}()
+
+	for i := 0; i < workers; i++ {
 		ch := NewChunkHandler(filename, BufferSize, chunks[2*i], chunks[2*i+1])
-		go ch.Handle(counter, h, u, done, Limit)
+		go ch.Handle(counter, h, u, Limit, wg)
 	}
-
-	for {
-		if finishedGoroutines == Workers {
-			break
-		}
-		select {
-		case hd := <-h:
-			handled += hd
-			fmt.Printf("Handled address count: %d\r", handled)
-		case ud := <-u:
-			unique += ud
-		case <-done:
-			finishedGoroutines++
-		}
-	}
+	wg.Wait()
 
 	runtime.ReadMemStats(&m2)
 	elapsed := time.Since(start)

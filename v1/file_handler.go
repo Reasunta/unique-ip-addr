@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"slices"
 )
@@ -66,7 +67,7 @@ func (fh *FileHandler) handleBuffer(buffer []byte, size int) (uint64, uint32) {
 	return handled, unique
 }
 
-func (fh *FileHandler) countAddresses(h chan uint64, u chan uint32, done chan bool, limit uint64, size int64) {
+func (fh *FileHandler) countAddresses(h chan uint64, u chan uint32, limit uint64, size int64) {
 	buffer := make([]byte, fh.bufferSize)
 	var handled, sum uint64 = 0, 0
 	var unique uint32 = 0
@@ -98,5 +99,6 @@ func (fh *FileHandler) countAddresses(h chan uint64, u chan uint32, done chan bo
 	}
 	h <- handled
 	u <- unique
-	done <- true
+	h <- math.MaxUint64
+	u <- math.MaxUint32
 }
