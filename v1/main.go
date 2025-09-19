@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	BufferSize = 4096 * 32
+	BufferSize = 1 << 20
 )
 
 func main() {
@@ -24,7 +24,7 @@ func main() {
 	var unique uint32 = 0
 
 	ch := NewChunkHandler(filename, BufferSize)
-	handled, unique = ch.Handle(counter, 100000000)
+	handled, unique = ch.Handle(counter, 10000000)
 
 	runtime.ReadMemStats(&m2)
 	elapsed := time.Since(start)
