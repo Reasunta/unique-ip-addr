@@ -8,6 +8,10 @@ import (
 	"slices"
 )
 
+const (
+	SendInterval uint64 = 2000000
+)
+
 type FileHandler struct {
 	reader     *bufio.Reader
 	counter    *IPCounter
@@ -41,11 +45,7 @@ func (fh *FileHandler) handleIP(line []byte) uint32 {
 		itemIndex *= 10
 	}
 
-	if !fh.counter.has(result) {
-		fh.counter.add(result)
-		return 1
-	}
-	return 0
+	return fh.counter.handle(result)
 }
 
 func (fh *FileHandler) handleBuffer(buffer []byte, size int) (uint64, uint32) {
@@ -70,26 +70,32 @@ func (fh *FileHandler) handleBuffer(buffer []byte, size int) (uint64, uint32) {
 	return handled, unique
 }
 
-func (fh *FileHandler) countAddresses(limit uint64) (uint64, uint32) {
+func (fh *FileHandler) countAddresses(h chan uint64, u chan uint32, done chan bool, limit uint64, size int64) {
 	buffer := make([]byte, fh.bufferSize)
 	var handled uint64 = 0
 	var unique uint32 = 0
+	var readSize int64 = 0
 
-	for n, err := fh.reader.Read(buffer); n > 0; n, err = fh.reader.Read(buffer) {
+	for n, err := fh.reader.Read(buffer); n > 0 && readSize < size; n, err = fh.reader.Read(buffer) {
 		if err != nil && err != io.EOF {
 			fmt.Println(err)
 			break
 		}
+		if readSize+int64(n) > size {
+			n = int(size - readSize)
+		}
 		hd, td := fh.handleBuffer(buffer, n)
+		readSize += int64(n)
+
 		handled += hd
 		unique += td
 
-		fmt.Printf("Handled address count: %d\r", handled)
-
+		h <- hd
+		u <- td
 		if limit > 0 && handled > limit {
 			break
 		}
 	}
 
-	return handled, unique
+	done <- true
 }
