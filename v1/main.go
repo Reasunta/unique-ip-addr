@@ -12,10 +12,10 @@ import (
 )
 
 const (
-	BufferSize               = 1 << 20
-	ChannelBufferSize        = 1 << 8
-	Limit                    = 0
-	SendLimit         uint64 = 1000000
+	BufferSize               = 1 << 20 //Size of file reader buffer in bytes
+	ChannelBufferSize        = 1 << 8  //Size of channels buffer
+	Limit                    = 0       // Debug feature, allows to stop every working thread after handling at least Limit addresses
+	SendLimit         uint64 = 1000000 // Working thread sends number of handled ips to main thread when at least SendLimit addresses are handled
 )
 
 func calcChunks(filename string, parts int) ([]int64, error) {
@@ -64,7 +64,7 @@ func main() {
 	if workers < 1 {
 		workers = 1
 	}
-
+	fmt.Printf("Working thread count: %d\n", workers)
 	var m1, m2 runtime.MemStats
 	runtime.GC()
 	runtime.ReadMemStats(&m1)
