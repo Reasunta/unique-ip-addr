@@ -70,7 +70,7 @@ func (fh *FileHandler) handleBuffer(buffer []byte, size int) (uint64, uint32) {
 	return handled, unique
 }
 
-func (fh *FileHandler) countAddresses() (uint64, uint32) {
+func (fh *FileHandler) countAddresses(limit uint64) (uint64, uint32) {
 	buffer := make([]byte, fh.bufferSize)
 	var handled uint64 = 0
 	var unique uint32 = 0
@@ -85,6 +85,10 @@ func (fh *FileHandler) countAddresses() (uint64, uint32) {
 		unique += td
 
 		fmt.Printf("Handled address count: %d\r", handled)
+
+		if limit > 0 && handled > limit {
+			break
+		}
 	}
 
 	return handled, unique

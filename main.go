@@ -21,16 +21,16 @@ func main() {
 
 	counter := NewIPCounter()
 	var handled uint64 = 0
-	var total uint32 = 0
+	var unique uint32 = 0
 
 	ch := NewChunkHandler(filename, BufferSize)
-	handled, total = ch.Handle(counter)
+	handled, unique = ch.Handle(counter, 100000000)
 
 	runtime.ReadMemStats(&m2)
 	elapsed := time.Since(start)
 
 	fmt.Printf("Handled address count: %d", handled)
-	fmt.Printf("\nUnique address count: %d", total)
+	fmt.Printf("\nUnique address count: %d", unique)
 
 	velocity := float64(handled) / float64(elapsed.Milliseconds())
 	fmt.Printf("\nAverage velocity: %f ip / ms", velocity)

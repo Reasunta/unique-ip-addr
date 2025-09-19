@@ -11,7 +11,7 @@ func NewChunkHandler(filename string, bufferSize int) *ChunkHandler {
 	return &ChunkHandler{filename: filename, bufferSize: bufferSize}
 }
 
-func (ch *ChunkHandler) Handle(counter *IPCounter) (uint64, uint32) {
+func (ch *ChunkHandler) Handle(counter *IPCounter, limit uint64) (uint64, uint32) {
 	file, err := os.Open(ch.filename)
 	defer func(file *os.File) {
 		err := file.Close()
@@ -25,5 +25,5 @@ func (ch *ChunkHandler) Handle(counter *IPCounter) (uint64, uint32) {
 	}
 
 	fileHandler := NewFileHandler(file, ch.bufferSize, counter)
-	return fileHandler.countAddresses()
+	return fileHandler.countAddresses(limit)
 }
