@@ -6,15 +6,16 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	"sync"
 	"time"
 )
 
 const (
 	BufferSize        = 1 << 20
-	ChannelBufferSize = 1 << 10
-	Limit             = 100000000
-	Workers           = 1
+	ChannelBufferSize = 1 << 12
+	Limit             = 0
+
+	Workers          = 2
+	SendLimit uint64 = 1000000
 )
 
 func calcChunks(filename string, parts int) ([]int64, error) {
@@ -78,32 +79,25 @@ func main() {
 
 	var finishedGoroutines = 0
 
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-		for {
-			if finishedGoroutines == Workers {
-				break
-			}
-			select {
-			case hd := <-h:
-				handled += hd
-				fmt.Printf("Handled address count: %d\r", handled)
-			case ud := <-u:
-				unique += ud
-			case <-done:
-				finishedGoroutines++
-			}
-		}
-	}()
-
 	for i := 0; i < Workers; i++ {
 		ch := NewChunkHandler(filename, BufferSize, chunks[2*i], chunks[2*i+1])
 		go ch.Handle(counter, h, u, done, Limit)
 	}
-	wg.Wait()
+
+	for {
+		if finishedGoroutines == Workers {
+			break
+		}
+		select {
+		case hd := <-h:
+			handled += hd
+			fmt.Printf("Handled address count: %d\r", handled)
+		case ud := <-u:
+			unique += ud
+		case <-done:
+			finishedGoroutines++
+		}
+	}
 
 	runtime.ReadMemStats(&m2)
 	elapsed := time.Since(start)

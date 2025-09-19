@@ -8,10 +8,6 @@ import (
 	"slices"
 )
 
-const (
-	SendInterval uint64 = 2000000
-)
-
 type FileHandler struct {
 	reader     *bufio.Reader
 	counter    *IPCounter
@@ -72,7 +68,7 @@ func (fh *FileHandler) handleBuffer(buffer []byte, size int) (uint64, uint32) {
 
 func (fh *FileHandler) countAddresses(h chan uint64, u chan uint32, done chan bool, limit uint64, size int64) {
 	buffer := make([]byte, fh.bufferSize)
-	var handled uint64 = 0
+	var handled, sum uint64 = 0, 0
 	var unique uint32 = 0
 	var readSize int64 = 0
 
@@ -88,14 +84,19 @@ func (fh *FileHandler) countAddresses(h chan uint64, u chan uint32, done chan bo
 		readSize += int64(n)
 
 		handled += hd
+		sum += hd
 		unique += td
 
-		h <- hd
-		u <- td
-		if limit > 0 && handled > limit {
+		if handled > SendLimit {
+			h <- handled
+			handled = 0
+		}
+
+		if limit > 0 && sum > limit {
 			break
 		}
 	}
-
+	h <- handled
+	u <- unique
 	done <- true
 }
