@@ -13,6 +13,7 @@ import (
 
 const (
 	BufferSize               = 1 << 20 //Size of file reader buffer in bytes
+	MaxIpSize                = 16      // Max expected size of one line
 	ChannelBufferSize        = 1 << 8  //Size of channels buffer
 	Limit                    = 0       // Debug feature, allows to stop every working thread after handling at least Limit addresses
 	SendLimit         uint64 = 1000000 // Working thread sends number of handled ips to main thread when at least SendLimit addresses are handled

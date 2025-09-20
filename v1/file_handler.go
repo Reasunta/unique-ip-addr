@@ -25,42 +25,58 @@ func NewFileHandler(file *os.File, bufferSize int, counter *IPCounter) *FileHand
 	}
 }
 
-func (fh *FileHandler) handleIP(line []byte) uint32 {
+func (fh *FileHandler) handleIP(line []byte) (uint32, int) {
 	var result uint32 = 0
-	var powIndex, itemIndex uint32 = 1, 1
+	var octet, shift uint32 = 0, 24
 
-	for i := len(line) - 1; i >= 0; i-- {
-		if line[i] == 10 || line[i] == 13 {
+	for i := 0; i < len(line); i++ {
+		if line[i] == 13 {
 			continue
+		}
+		if line[i] == 10 {
+			result |= octet
+			return fh.counter.handle(result), i
 		}
 		if line[i] == 46 {
-			powIndex *= 256
-			itemIndex = 1
+			if octet > 255 {
+				panic(fmt.Sprintf("Too big octet: %d in string %s", octet, string(line)))
+			}
+			result |= octet << shift
+			octet = 0
+			shift -= 8
 			continue
 		}
-		result += uint32(line[i]-48) * itemIndex * powIndex
-		itemIndex *= 10
+		octet = octet*10 + uint32(line[i]-'0')
 	}
-
-	return fh.counter.handle(result)
+	return 0, -1
 }
 
 func (fh *FileHandler) handleBuffer(buffer []byte, size int) (uint64, uint32) {
 	startIndex := 0
 	var handled uint64 = 0
 	var unique uint32 = 0
-	var useTail = true
 
-	for i := 0; i < size; i++ {
-		if buffer[i] == '\n' {
-			if useTail {
-				unique += fh.handleIP(append(fh.tail, buffer[:i]...))
-				useTail = false
-			} else {
-				unique += fh.handleIP(buffer[startIndex:i])
-			}
+	u, endIndex := fh.handleIP(append(fh.tail, buffer[:MaxIpSize]...))
+	unique += u
+	handled++
+	startIndex = endIndex - len(fh.tail) + 1
+
+	for i := startIndex; i < size; i++ {
+		ipSize := MaxIpSize
+		if size-i < ipSize {
+			ipSize = size - i
+		}
+
+		u, endIndex := fh.handleIP(buffer[i : i+ipSize])
+		if endIndex > 0 {
+			unique += u
 			handled++
+
+			i += endIndex
+			startIndex = i + 1
+		} else {
 			startIndex = i
+			break
 		}
 	}
 	fh.tail = slices.Clone(buffer[startIndex:size])
